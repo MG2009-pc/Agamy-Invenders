@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+   <link rel="manifest" href="manifest.json">
+<meta charset="UTF-8">
+<title>Space War Game</title>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #000000;
+  font-family: Arial;
+}
+
+/* Canvas */
+canvas {
+  display: block;
+}
+
+/* أزرار التحكم */
+.controls {
+  position: fixed;
+  bottom: 10px;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+}
+
+.dpad, .shoot {
+  display: grid;
+  gap: 10px;
+}
+
+.dpad {
+  grid-template-columns: 60px 60px 60px;
+  grid-template-rows: 60px 60px 60px;
+}
+
+button {
+  width: 60px;
+  height: 60px;
+  font-size: 18px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+.shoot button {
+  width: 90px;
+  height: 90px;
+}
+</style>
+
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div class="controls">
+  <div class="dpad">
+    <div></div>
+    <button id="up">⬆️</button>
+    <div></div>
+
+    <button id="left">⬅️</button>
+    <div></div>
+    <button id="right">➡️</button>
+
+    <div></div>
+    <button id="down">⬇️</button>
+    <div></div>
+  </div>
+
+  <div class="shoot">
+    <button id="shoot">💥</button>
+  </div>
+</div>
+
+<script>
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+// اجعل الشاشة أفقية
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+// اللاعب
+let player = {
+  x: canvas.width / 2,
+  y: canvas.height - 100,
+  w: 50,
+  h: 50,
+  speed: 6
+};
+
+let bullets = [];
+let enemies = [];
+let stars = [];
+
+let score = 0;
+let health = 100;
+
+// نجوم (خلفية الفضاء)
+for (let i = 0; i < 100; i++) {
+  stars.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    size: Math.random() * 2
+  });
+}
+
+// التحكم
+let keys = { left:false, right:false, up:false, down:false };
+
+// 🔥 إصلاح الأزرار (touch)
+function hold(id, key) {
+  const btn = document.getElementById(id);
+
+  btn.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    keys[key] = true;
+  });
+
+  btn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    keys[key] = false;
+  });
+}
+
+hold("left", "left");
+hold("right", "right");
+hold("up", "up");
+hold("down", "down");
+
+// إطلاق النار
+document.getElementById("shoot").addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  shoot();
+});
+
+function shoot() {
+  bullets.push({
+    x: player.x + player.w / 2 - 3,
+    y: player.y,
+    w: 6,
+    h: 12,
+    speed: 10
+  });
+}
+
+// عدو
+function spawnEnemy() {
+  enemies.push({
+    x: Math.random() * (canvas.width - 40),
+    y: -50,
+    w: 40,
+    h: 40,
+    speed: 2 + Math.random() * 2
+  });
+}
+
+// تحديث
+function update() {
+
+  if (keys.left) player.x -= player.speed;
+  if (keys.right) player.x += player.speed;
+  if (keys.up) player.y -= player.speed;
+  if (keys.down) player.y += player.speed;
+
+  // حدود
+  player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
+  player.y = Math.max(0, Math.min(canvas.height - player.h, player.y));
+
+  // bullets
+  bullets.forEach((b, i) => {
+    b.y -= b.speed;
+    if (b.y < 0) bullets.splice(i, 1);
+  });
+
+  // enemies
+  enemies.forEach((e, ei) => {
+    e.y += e.speed;
+
+    // اصطدام مع اللاعب
+    if (
+      e.x < player.x + player.w &&
+      e.x + e.w > player.x &&
+      e.y < player.y + player.h &&
+      e.y + e.h > player.y
+    ) {
+      health -= 10;
+      enemies.splice(ei, 1);
+    }
+
+    if (e.y > canvas.height) enemies.splice(ei, 1);
+  });
+
+  // bullets vs enemies
+  bullets.forEach((b, bi) => {
+    enemies.forEach((e, ei) => {
+      if (
+        b.x < e.x + e.w &&
+        b.x + b.w > e.x &&
+        b.y < e.y + e.h &&
+        b.y + b.h > e.y
+      ) {
+        score += 10;
+        enemies.splice(ei, 1);
+        bullets.splice(bi, 1);
+      }
+    });
+  });
+
+  if (health <= 0) {
+    alert("Game Over 💀 Score: " + score);
+    location.reload();
+  }
+}
+
+// رسم الفضاء
+function drawStars() {
+  ctx.fillStyle = "white";
+  stars.forEach(s => {
+    ctx.fillRect(s.x, s.y, s.size, s.size);
+    s.y += 0.5;
+    if (s.y > canvas.height) {
+      s.y = 0;
+      s.x = Math.random() * canvas.width;
+    }
+  });
+}
+
+// رسم
+function draw() {
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawStars();
+
+  // اللاعب
+  ctx.fillStyle = "lime";
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+
+  // bullets
+  ctx.fillStyle = "yellow";
+  bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+
+  // enemies
+  ctx.fillStyle = "red";
+  enemies.forEach(e => ctx.fillRect(e.x, e.y, e.w, e.h));
+
+  // HUD
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText("Score: " + score, 20, 30);
+  ctx.fillText("Health: " + health, 20, 60);
+}
+
+// لوب
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+setInterval(spawnEnemy, 1000);
+
+loop();
+
+</script>
+
+</body>
+</html>
