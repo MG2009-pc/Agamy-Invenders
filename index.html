@@ -3,53 +3,16 @@
 <head>
    <link rel="manifest" href="manifest.json">
 <meta charset="UTF-8">
-<title>Space War Game</title>
+<title>Agamy Invinders</title>
 
 <style>
 body {
   margin: 0;
   overflow: hidden;
-  background: #000000;
-  font-family: Arial;
+  background: black;
 }
-
-/* Canvas */
 canvas {
   display: block;
-}
-
-/* أزرار التحكم */
-.controls {
-  position: fixed;
-  bottom: 10px;
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  padding: 10px;
-}
-
-.dpad, .shoot {
-  display: grid;
-  gap: 10px;
-}
-
-.dpad {
-  grid-template-columns: 60px 60px 60px;
-  grid-template-rows: 60px 60px 60px;
-}
-
-button {
-  width: 60px;
-  height: 60px;
-  font-size: 18px;
-  border: none;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.2);
-  color: white;
-}
-.shoot button {
-  width: 90px;
-  height: 90px;
 }
 </style>
 
@@ -58,32 +21,12 @@ button {
 
 <canvas id="game"></canvas>
 
-<div class="controls">
-  <div class="dpad">
-    <div></div>
-    <button id="up">⬆️</button>
-    <div></div>
-
-    <button id="left">⬅️</button>
-    <div></div>
-    <button id="right">➡️</button>
-
-    <div></div>
-    <button id="down">⬇️</button>
-    <div></div>
-  </div>
-
-  <div class="shoot">
-    <button id="shoot">💥</button>
-  </div>
-</div>
-
 <script>
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-// اجعل الشاشة أفقية
+/* شاشة بالطول */
 function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -91,63 +34,53 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
-// اللاعب
+/* اللاعب */
 let player = {
   x: canvas.width / 2,
-  y: canvas.height - 100,
+  y: canvas.height - 120,
   w: 50,
-  h: 50,
-  speed: 6
+  h: 50
 };
 
 let bullets = [];
 let enemies = [];
+let particles = [];
+let powerUps = [];
 let stars = [];
 
 let score = 0;
 let health = 100;
 
-// نجوم (خلفية الفضاء)
-for (let i = 0; i < 100; i++) {
+let shooting = false;
+
+/* نجوم */
+for (let i = 0; i < 120; i++) {
   stars.push({
     x: Math.random() * canvas.width,
     y: Math.random() * canvas.height,
-    size: Math.random() * 2
+    s: Math.random() * 2
   });
 }
 
-// التحكم
-let keys = { left:false, right:false, up:false, down:false };
-
-// 🔥 إصلاح الأزرار (touch)
-function hold(id, key) {
-  const btn = document.getElementById(id);
-
-  btn.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    keys[key] = true;
-  });
-
-  btn.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    keys[key] = false;
-  });
-}
-
-hold("left", "left");
-hold("right", "right");
-hold("up", "up");
-hold("down", "down");
-
-// إطلاق النار
-document.getElementById("shoot").addEventListener("touchstart", (e) => {
-  e.preventDefault();
-  shoot();
+/* سحب + إطلاق */
+canvas.addEventListener("touchstart", e => {
+  shooting = true;
 });
 
+canvas.addEventListener("touchend", e => {
+  shooting = false;
+});
+
+canvas.addEventListener("touchmove", e => {
+  let t = e.touches[0];
+  player.x = t.clientX - player.w/2;
+  player.y = t.clientY - player.h/2;
+});
+
+/* إطلاق مستمر */
 function shoot() {
   bullets.push({
-    x: player.x + player.w / 2 - 3,
+    x: player.x + 22,
     y: player.y,
     w: 6,
     h: 12,
@@ -155,7 +88,7 @@ function shoot() {
   });
 }
 
-// عدو
+/* أعداء */
 function spawnEnemy() {
   enemies.push({
     x: Math.random() * (canvas.width - 40),
@@ -166,56 +99,92 @@ function spawnEnemy() {
   });
 }
 
-// تحديث
+/* PowerUp */
+function spawnPowerUp() {
+  powerUps.push({
+    x: Math.random() * canvas.width,
+    y: -30,
+    w: 25,
+    h: 25,
+    speed: 2
+  });
+}
+
+/* تحديث */
 function update() {
 
-  if (keys.left) player.x -= player.speed;
-  if (keys.right) player.x += player.speed;
-  if (keys.up) player.y -= player.speed;
-  if (keys.down) player.y += player.speed;
+  if (shooting && Math.random() < 0.3) shoot();
 
-  // حدود
-  player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
-  player.y = Math.max(0, Math.min(canvas.height - player.h, player.y));
-
-  // bullets
-  bullets.forEach((b, i) => {
+  /* bullets */
+  bullets.forEach((b,i)=>{
     b.y -= b.speed;
-    if (b.y < 0) bullets.splice(i, 1);
+    if (b.y < 0) bullets.splice(i,1);
   });
 
-  // enemies
-  enemies.forEach((e, ei) => {
+  /* enemies */
+  enemies.forEach((e, ei)=>{
     e.y += e.speed;
 
-    // اصطدام مع اللاعب
     if (
       e.x < player.x + player.w &&
       e.x + e.w > player.x &&
       e.y < player.y + player.h &&
       e.y + e.h > player.y
-    ) {
+    ){
       health -= 10;
-      enemies.splice(ei, 1);
+      enemies.splice(ei,1);
     }
 
-    if (e.y > canvas.height) enemies.splice(ei, 1);
+    if (e.y > canvas.height) enemies.splice(ei,1);
   });
 
-  // bullets vs enemies
-  bullets.forEach((b, bi) => {
-    enemies.forEach((e, ei) => {
+  /* bullets vs enemies */
+  bullets.forEach((b, bi)=>{
+    enemies.forEach((e, ei)=>{
       if (
         b.x < e.x + e.w &&
         b.x + b.w > e.x &&
         b.y < e.y + e.h &&
         b.y + b.h > e.y
-      ) {
+      ){
         score += 10;
-        enemies.splice(ei, 1);
-        bullets.splice(bi, 1);
+
+        for(let i=0;i<10;i++){
+          particles.push({
+            x:e.x, y:e.y,
+            vx:(Math.random()-0.5)*4,
+            vy:(Math.random()-0.5)*4,
+            life:20
+          });
+        }
+
+        enemies.splice(ei,1);
+        bullets.splice(bi,1);
       }
     });
+  });
+
+  /* powerUp */
+  powerUps.forEach((p, pi)=>{
+    p.y += p.speed;
+
+    if (
+      p.x < player.x + player.w &&
+      p.x + p.w > player.x &&
+      p.y < player.y + player.h &&
+      p.y + p.h > player.y
+    ){
+      health = Math.min(100, health + 20);
+      powerUps.splice(pi,1);
+    }
+  });
+
+  /* particles */
+  particles.forEach((p,i)=>{
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+    if(p.life <= 0) particles.splice(i,1);
   });
 
   if (health <= 0) {
@@ -224,53 +193,71 @@ function update() {
   }
 }
 
-// رسم الفضاء
-function drawStars() {
+/* رسم */
+function draw() {
+
+  ctx.fillStyle = "black";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  /* نجوم */
   ctx.fillStyle = "white";
-  stars.forEach(s => {
-    ctx.fillRect(s.x, s.y, s.size, s.size);
+  stars.forEach(s=>{
+    ctx.fillRect(s.x,s.y,s.s,s.s);
     s.y += 0.5;
-    if (s.y > canvas.height) {
+    if(s.y > canvas.height){
       s.y = 0;
-      s.x = Math.random() * canvas.width;
+      s.x = Math.random()*canvas.width;
     }
   });
-}
 
-// رسم
-function draw() {
-  ctx.fillStyle = "black";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  drawStars();
-
-  // اللاعب
+  /* اللاعب (طيارة) */
   ctx.fillStyle = "lime";
-  ctx.fillRect(player.x, player.y, player.w, player.h);
+  ctx.beginPath();
+  ctx.moveTo(player.x + 25, player.y);
+  ctx.lineTo(player.x, player.y + 50);
+  ctx.lineTo(player.x + 50, player.y + 50);
+  ctx.fill();
 
-  // bullets
+  /* bullets */
   ctx.fillStyle = "yellow";
-  bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+  bullets.forEach(b=>{
+    ctx.fillRect(b.x,b.y,b.w,b.h);
+  });
 
-  // enemies
+  /* enemies */
   ctx.fillStyle = "red";
-  enemies.forEach(e => ctx.fillRect(e.x, e.y, e.w, e.h));
+  enemies.forEach(e=>{
+    ctx.fillRect(e.x,e.y,e.w,e.h);
+  });
 
-  // HUD
+  /* powerUps */
+  ctx.fillStyle = "cyan";
+  powerUps.forEach(p=>{
+    ctx.fillRect(p.x,p.y,p.w,p.h);
+  });
+
+  /* particles */
+  ctx.fillStyle = "orange";
+  particles.forEach(p=>{
+    ctx.fillRect(p.x,p.y,3,3);
+  });
+
+  /* HUD */
   ctx.fillStyle = "white";
-  ctx.font = "20px Arial";
-  ctx.fillText("Score: " + score, 20, 30);
-  ctx.fillText("Health: " + health, 20, 60);
+  ctx.font = "18px Arial";
+  ctx.fillText("Score: " + score, 10, 25);
+  ctx.fillText("Health: " + health, 10, 50);
 }
 
-// لوب
-function loop() {
+/* لوب */
+function loop(){
   update();
   draw();
   requestAnimationFrame(loop);
 }
 
-setInterval(spawnEnemy, 1000);
+setInterval(spawnEnemy, 800);
+setInterval(spawnPowerUp, 5000);
 
 loop();
 
