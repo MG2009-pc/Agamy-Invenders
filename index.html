@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-     <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.json">
 <meta charset="UTF-8">
 <title>Agamy Invenders</title>
 
@@ -27,33 +27,38 @@ function resize(){
 resize();
 window.onresize = resize;
 
-/* 💾 تحميل البيانات */
+/* حفظ */
 let level = parseInt(localStorage.getItem("level")) || 1;
 let score = parseInt(localStorage.getItem("score")) || 0;
 
 /* اللاعب */
 let player = {
   x: canvas.width/2,
-  y: canvas.height-150,
-  w: 70,
-  h: 70
+  y: canvas.height-180,
+  w: 90,
+  h: 90
 };
 
-let bullets=[], enemies=[], powerUps=[], particles=[];
+let bullets=[], enemies=[], particles=[], powerUps=[];
+let boss=null;
+
 let health = 100;
 let shooting = false;
-let weapon = "normal";
+let weapon="normal";
 
 /* نجوم */
 let stars=[];
-for(let i=0;i<120;i++){
-  stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,s:Math.random()*2});
+for(let i=0;i<150;i++){
+  stars.push({
+    x:Math.random()*canvas.width,
+    y:Math.random()*canvas.height,
+    s:Math.random()*2
+  });
 }
 
 /* تحكم */
 canvas.addEventListener("touchstart",()=> shooting=true);
 canvas.addEventListener("touchend",()=> shooting=false);
-
 canvas.addEventListener("touchmove",e=>{
   let t=e.touches[0];
   player.x=t.clientX-player.w/2;
@@ -62,41 +67,41 @@ canvas.addEventListener("touchmove",e=>{
 
 /* إطلاق */
 function shoot(){
-  if(weapon==="normal"){
-    bullets.push({x:player.x+30,y:player.y,w:8,h:18,speed:10});
-  }
-  else if(weapon==="fast"){
-    bullets.push({x:player.x+30,y:player.y,w:6,h:14,speed:15});
-  }
-  else if(weapon==="double"){
-    bullets.push({x:player.x+10,y:player.y,w:8,h:18,speed:10});
-    bullets.push({x:player.x+50,y:player.y,w:8,h:18,speed:10});
+  if(weapon==="double"){
+    bullets.push({x:player.x+20,y:player.y,w:10,h:25,speed:12});
+    bullets.push({x:player.x+60,y:player.y,w:10,h:25,speed:12});
+  }else{
+    bullets.push({
+      x:player.x+40,
+      y:player.y,
+      w:10,
+      h:25,
+      speed: weapon==="fast"?16:12
+    });
   }
 }
 
 /* أعداء */
 function spawnEnemy(){
   enemies.push({
-    x:Math.random()*(canvas.width-60),
-    y:-60,
-    w:60,
-    h:60,
-    speed:2+level*0.5,
-    hp:1
+    x:Math.random()*(canvas.width-80),
+    y:-80,
+    w:80,
+    h:80,
+    speed:2 + level*0.6,
+    color:`hsl(${level*40},80%,50%)`
   });
 }
 
 /* Boss */
-let boss=null;
-
 function spawnBoss(){
   boss={
-    x:canvas.width/2-100,
+    x:canvas.width/2-150,
     y:50,
-    w:200,
-    h:200,
-    hp:20+level*10,
-    color:`hsl(${level*60},100%,50%)`
+    w:300,
+    h:300,
+    hp:40+level*10,
+    color:`hsl(${level*70},100%,50%)`
   };
 }
 
@@ -105,8 +110,8 @@ function spawnPowerUp(){
   powerUps.push({
     x:Math.random()*canvas.width,
     y:-30,
-    w:20,
-    h:20,
+    w:25,
+    h:25,
     type:["normal","fast","double"][Math.floor(Math.random()*3)]
   });
 }
@@ -137,7 +142,7 @@ function update(){
     if(e.y>canvas.height) enemies.splice(ei,1);
   });
 
-  /* ضرب الأعداء */
+  /* ضرب + انفجار */
   bullets.forEach((b,bi)=>{
     enemies.forEach((e,ei)=>{
       if(
@@ -147,6 +152,19 @@ function update(){
         b.y+b.h>e.y
       ){
         score+=10;
+
+        /* انفجار AAA */
+        for(let i=0;i<20;i++){
+          particles.push({
+            x:e.x+40,
+            y:e.y+40,
+            vx:(Math.random()-0.5)*8,
+            vy:(Math.random()-0.5)*8,
+            life:30,
+            color:e.color
+          });
+        }
+
         enemies.splice(ei,1);
         bullets.splice(bi,1);
       }
@@ -170,6 +188,7 @@ function update(){
     if(boss.hp<=0){
       boss=null;
       level++;
+      alert("🔥 Agamy Hunter 🔥");
       localStorage.setItem("level",level);
     }
   }
@@ -189,6 +208,19 @@ function update(){
     }
   });
 
+  /* particles */
+  particles.forEach((p,i)=>{
+    p.x+=p.vx;
+    p.y+=p.vy;
+    p.life--;
+    if(p.life<=0) particles.splice(i,1);
+  });
+
+  /* صعوبة */
+  if(level%2===0){
+    enemies.forEach(e=> e.speed+=0.03);
+  }
+
   /* حفظ */
   localStorage.setItem("score",score);
 
@@ -205,7 +237,7 @@ function draw(){
   ctx.fillStyle="black";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  /* نجوم */
+  /* الفضاء */
   ctx.fillStyle="white";
   stars.forEach(s=>{
     ctx.fillRect(s.x,s.y,s.s,s.s);
@@ -219,18 +251,20 @@ function draw(){
   /* اللاعب */
   ctx.fillStyle="lime";
   ctx.beginPath();
-  ctx.moveTo(player.x+35,player.y);
-  ctx.lineTo(player.x,player.y+70);
-  ctx.lineTo(player.x+70,player.y+70);
+  ctx.moveTo(player.x+45,player.y);
+  ctx.lineTo(player.x,player.y+90);
+  ctx.lineTo(player.x+90,player.y+90);
   ctx.fill();
 
   /* bullets */
-  ctx.fillStyle="yellow";
+  ctx.fillStyle= weapon==="fast"?"cyan": weapon==="double"?"orange":"yellow";
   bullets.forEach(b=>ctx.fillRect(b.x,b.y,b.w,b.h));
 
   /* enemies */
-  ctx.fillStyle="red";
-  enemies.forEach(e=>ctx.fillRect(e.x,e.y,e.w,e.h));
+  enemies.forEach(e=>{
+    ctx.fillStyle=e.color;
+    ctx.fillRect(e.x,e.y,e.w,e.h);
+  });
 
   /* boss */
   if(boss){
@@ -238,12 +272,14 @@ function draw(){
     ctx.fillRect(boss.x,boss.y,boss.w,boss.h);
 
     ctx.fillStyle="white";
-    ctx.fillText("Boss HP: "+boss.hp,20,90);
+    ctx.fillText("Boss HP: "+boss.hp,20,100);
   }
 
-  /* powerUps */
-  ctx.fillStyle="yellow";
-  powerUps.forEach(p=>ctx.fillRect(p.x,p.y,p.w,p.h));
+  /* انفجار */
+  particles.forEach(p=>{
+    ctx.fillStyle=p.color;
+    ctx.fillRect(p.x,p.y,4,4);
+  });
 
   /* HUD */
   ctx.fillStyle="white";
@@ -266,9 +302,8 @@ setInterval(()=>{
     spawnEnemy();
     if(Math.random()<0.2) spawnPowerUp();
   }
-},800);
+},700);
 
-/* كل 20 ثانية Boss */
 setInterval(()=>{
   if(!boss) spawnBoss();
 },20000);
